@@ -47,14 +47,12 @@ async def check_proxies(proxies):
     return live_proxies, die_proxies
 
 # Hàm ghi proxy vào file
-def write_proxies_to_file(formatted_proxies, abc_proxies, skip_present):
+def write_proxies_to_file(formatted_proxies, skip_present):
     with open('proxy.txt', 'w') as file:
         if skip_present:
             file.write('skip\n')  # Ghi "skip" vào dòng 1
-            file.writelines(formatted_proxies)  # Ghi proxy từ API vào dòng 2 trở đi
-        else:
-            file.writelines(formatted_proxies)  # Ghi proxy từ API vào dòng 1
-        file.writelines(abc_proxies)  # Ghi proxy từ proxyQuang.txt vào sau
+        doubled_proxies = formatted_proxies * 2  # Nhân đôi danh sách proxy
+        file.writelines(doubled_proxies)  # Ghi proxy từ API (đã nhân đôi)
 
 # Hàm ghi proxy die vào log.txt với ghi chú thời gian
 def write_die_proxies_to_log(die_proxies):
@@ -68,10 +66,6 @@ async def main():
     # Lấy proxy từ API
     formatted_proxies = await fetch_proxies(apiProxy)
 
-    # Đọc proxy từ proxyQuang.txt
-    with open('proxyQuang.txt', 'r') as file:
-        abc_proxies = file.readlines()
-
     # Kiểm tra dòng đầu tiên của proxy.txt
     try:
         with open('proxy.txt', 'r') as file:
@@ -83,13 +77,13 @@ async def main():
     # Kiểm tra proxy live hay die
     live_proxies, die_proxies = await check_proxies(formatted_proxies)
 
-    # Ghi proxy live vào file proxy.txt
-    write_proxies_to_file(live_proxies, abc_proxies, skip_present)
+    # Ghi proxy live (đã nhân đôi) vào file proxy.txt
+    write_proxies_to_file(live_proxies, skip_present)
 
     # Ghi proxy die vào file log.txt với thời gian
     write_die_proxies_to_log(die_proxies)
 
-    print("Đã ghi proxy live vào proxy.txt và proxy die vào log.txt.")
+    print("Đã ghi proxy live (đã nhân đôi) vào proxy.txt và proxy die vào log.txt.")
 
 # Chạy chương trình chính
 asyncio.run(main())

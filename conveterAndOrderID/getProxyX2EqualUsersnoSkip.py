@@ -1,10 +1,9 @@
 import aiohttp
 import asyncio
-from datetime import datetime  # Import datetime
+from datetime import datetime
 
-# Thông tin API Key
 apiProxy = 'https://trumproxy.net/proxy/package_data?package_buy=1432&api_key=OHuuKfRG1RDYSYOUns33HjuB2'
-test_url = 'http://example.com'  # URL để kiểm tra proxy
+test_url = 'http://example.com'
 
 # Hàm lấy proxy từ API
 async def fetch_proxies(url):
@@ -22,9 +21,9 @@ async def check_proxy(session, proxy):
     try:
         async with session.get(test_url, proxy=proxy, timeout=5) as response:
             if response.status == 200:
-                return True  # Proxy live
+                return True
     except Exception:
-        return False  # Proxy die
+        return False
 
 # Hàm kiểm tra tất cả proxy
 async def check_proxies(proxies):
@@ -46,22 +45,24 @@ async def check_proxies(proxies):
 
     return live_proxies, die_proxies
 
-# Hàm ghi proxy vào file
-def write_proxies_to_file(formatted_proxies, abc_proxies, skip_present):
-    with open('proxy.txt', 'w') as file:
-        if skip_present:
-            file.write('skip\n')  # Ghi "skip" vào dòng 1
-            file.writelines(formatted_proxies)  # Ghi proxy từ API vào dòng 2 trở đi
-        else:
-            file.writelines(formatted_proxies)  # Ghi proxy từ API vào dòng 1
-        file.writelines(abc_proxies)  # Ghi proxy từ proxyQuang.txt vào sau
+# Hàm nhân đôi proxy khi thiếu
+def duplicate_proxies(live_proxies, total_lines):
+    duplicated_proxies = live_proxies.copy()
+    while len(duplicated_proxies) < total_lines:
+        duplicated_proxies.extend(live_proxies[:total_lines - len(duplicated_proxies)])
+    return duplicated_proxies[:total_lines]
 
-# Hàm ghi proxy die vào log.txt với ghi chú thời gian
+# Hàm ghi proxy vào file
+def write_proxies_to_file(final_proxies):
+    with open('proxy.txt', 'w') as file:
+        file.writelines(final_proxies)
+
+# Hàm ghi proxy die vào log.txt
 def write_die_proxies_to_log(die_proxies):
-    with open('log.txt', 'a') as log_file:  # Sử dụng 'a' để ghi nối tiếp vào file
+    with open('log.txt', 'w') as log_file:
         for proxy in die_proxies:
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Lấy thời gian hiện tại
-            log_file.write(f'{timestamp} - {proxy}')  # Ghi proxy die kèm thời gian
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            log_file.write(f'{timestamp} - {proxy}')
 
 # Hàm xử lý chính
 async def main():
@@ -70,23 +71,30 @@ async def main():
 
     # Đọc proxy từ proxyQuang.txt
     with open('proxyQuang.txt', 'r') as file:
-        abc_proxies = file.readlines()
+        abc_proxies = [line.strip() + '\n' for line in file.readlines()]
 
-    # Kiểm tra dòng đầu tiên của proxy.txt
-    try:
-        with open('proxy.txt', 'r') as file:
-            first_line = file.readline().strip()
-            skip_present = 'skip' in first_line.lower()
-    except FileNotFoundError:
-        skip_present = False  # Nếu không có file, coi như không có chữ "skip"
+    # Đọc users.txt, bỏ qua các dòng bắt đầu bằng #
+    with open('data.txt', 'r') as file:
+        lines = file.readlines()
+        users = [line for line in lines if not line.startswith('#')]
+
+        # Kiểm tra dòng đầu tiên
+        first_line = lines[0].strip()
+        if first_line.startswith('#0'):
+            total_lines = len(users) - 1  # Giảm đi 1 dòng
+        else:
+            total_lines = len(users)  # Tổng số dòng từ users.txt
 
     # Kiểm tra proxy live hay die
     live_proxies, die_proxies = await check_proxies(formatted_proxies)
 
-    # Ghi proxy live vào file proxy.txt
-    write_proxies_to_file(live_proxies, abc_proxies, skip_present)
+    # Nhân đôi proxy nếu thiếu
+    final_proxies = abc_proxies + live_proxies + duplicate_proxies(live_proxies, total_lines - len(live_proxies) - len(abc_proxies))
 
-    # Ghi proxy die vào file log.txt với thời gian
+    # Ghi proxy live vào file proxy.txt
+    write_proxies_to_file(final_proxies)
+
+    # Ghi proxy die vào file log.txt
     write_die_proxies_to_log(die_proxies)
 
     print("Đã ghi proxy live vào proxy.txt và proxy die vào log.txt.")
